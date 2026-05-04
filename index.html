@@ -54,6 +54,52 @@
         transform: scale(0.95);
       }
 
+      #btn2 {
+        background-color: white;
+        color: #ff69b4;
+        border: none;
+        border-radius: 20px;
+        padding: 30px 80px;
+        font-size: clamp(2rem, 8vw, 5rem);
+        font-weight: 900;
+        cursor: pointer;
+        transition: transform 0.1s;
+      }
+
+      #btn2:active {
+        transform: scale(0.95);
+      }
+
+      #night-overlay {
+        display: none;
+        position: fixed;
+        inset: 0;
+        background: #6b1a33;
+        z-index: 20;
+        align-items: center;
+        justify-content: center;
+        flex-direction: column;
+      }
+
+      #night-msg {
+        color: #fff5e4;
+        font-size: clamp(3rem, 13vw, 8rem);
+        font-weight: 900;
+        text-align: center;
+        line-height: 1.2;
+        display: none;
+        animation: popIn 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        padding: 20px;
+        z-index: 22;
+      }
+
+      #night-anim {
+        position: fixed;
+        inset: 0;
+        pointer-events: none;
+        z-index: 21;
+      }
+
       #love {
         display: none;
         color: white;
@@ -169,11 +215,17 @@
     <div id="main">
       <p id="headline">Press the button</p>
       <button id="btn" onclick="startAnim()">Button</button>
+      <button id="btn2" onclick="startNightAnim()">not a button</button>
     </div>
 
     <div id="flash"></div>
     <div id="anim"></div>
     <p id="love">Люблю тебя. Very much. ❤️</p>
+
+    <div id="night-overlay">
+      <div id="night-anim"></div>
+      <p id="night-msg">good night, my love 🌙</p>
+    </div>
 
     <script>
       function startAnim() {
@@ -209,6 +261,58 @@
           anim.style.display = "none";
           document.getElementById("love").style.display = "block";
         }, 3000);
+      }
+
+      function startNightAnim() {
+        document.getElementById("main").style.display = "none";
+
+        const overlay = document.getElementById("night-overlay");
+        overlay.style.display = "flex";
+
+        const nightAnim = document.getElementById("night-anim");
+
+        const hearts = ["❤️", "💖", "💗", "💓", "💝", "🌸", "🩷"];
+        const sparkColors = [
+          "#ffd9e8",
+          "#ffb3cc",
+          "#ff85aa",
+          "#ffe4ee",
+          "#fff5e4",
+          "#c2507a",
+        ];
+
+        const total = 60;
+        for (let i = 0; i < total; i++) {
+          setTimeout(() => {
+            spawnHeart(nightAnim, hearts);
+            spawnSpark(nightAnim, sparkColors);
+            spawnNightGlow(nightAnim);
+          }, i * 45);
+        }
+
+        setTimeout(() => {
+          const msg = document.getElementById("night-msg");
+          msg.style.display = "block";
+        }, 3000);
+      }
+
+      function spawnNightGlow(parent) {
+        const el = document.createElement("div");
+        el.className = "glow";
+        const size = 20 + Math.random() * 60;
+        el.style.width = el.style.height = size + "px";
+        el.style.left = Math.random() * 100 + "vw";
+        el.style.top = Math.random() * 100 + "vh";
+        const hue =
+          Math.random() > 0.5
+            ? "rgba(255,200,220,0.5)"
+            : "rgba(200,80,120,0.4)";
+        el.style.background = hue;
+        el.style.boxShadow = `0 0 ${size}px ${size / 2}px ${hue}`;
+        const dur = (0.4 + Math.random() * 0.8).toFixed(2);
+        el.style.animationDuration = dur + "s";
+        parent.appendChild(el);
+        setTimeout(() => el.remove(), 1200);
       }
 
       function spawnHeart(parent, hearts) {
