@@ -320,6 +320,160 @@
         border-radius: 50%;
         animation: shine ease-in-out infinite;
       }
+
+      #btn4 {
+        background-color: #27ae60;
+        color: white;
+        border: none;
+        border-radius: 20px;
+        padding: 30px 80px;
+        font-size: clamp(2rem, 8vw, 5rem);
+        font-weight: 900;
+        cursor: pointer;
+        transition: transform 0.1s;
+      }
+
+      #btn4:active {
+        transform: scale(0.95);
+      }
+
+      /* Game overlay */
+      #game-overlay {
+        display: none;
+        position: fixed;
+        inset: 0;
+        background: #2c1810;
+        z-index: 40;
+        flex-direction: column;
+        align-items: center;
+        justify-content: flex-start;
+        overflow-y: auto;
+        padding: 60px 10px 30px;
+      }
+
+      #game-title {
+        color: #ff9966;
+        font-size: clamp(1.5rem, 6vw, 3rem);
+        font-weight: 900;
+        margin-bottom: 12px;
+        text-align: center;
+      }
+
+      #game-score {
+        color: #ffd700;
+        font-size: clamp(1rem, 4vw, 2rem);
+        font-weight: 700;
+        margin-bottom: 16px;
+      }
+
+      #game-wall {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        width: 100%;
+        max-width: 480px;
+      }
+
+      .brick-row {
+        display: flex;
+        gap: 4px;
+      }
+
+      .brick {
+        flex: 1;
+        height: 44px;
+        background: linear-gradient(180deg, #c0392b 0%, #96281b 100%);
+        border-radius: 3px;
+        cursor: pointer;
+        box-shadow: inset 0 -3px 0 rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.1);
+        position: relative;
+        -webkit-tap-highlight-color: transparent;
+        user-select: none;
+      }
+
+      .brick.cracked {
+        background: linear-gradient(180deg, #7b241c 0%, #5a1a14 100%);
+      }
+
+      .brick.cracked::after {
+        content: '';
+        position: absolute;
+        inset: 0;
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='60' height='40'%3E%3Cpath d='M28 2 L22 16 L32 20 L18 38' stroke='%23000' stroke-width='2' fill='none' opacity='0.5'/%3E%3C/svg%3E");
+        background-size: 100% 100%;
+        border-radius: 3px;
+      }
+
+      .brick.destroyed {
+        background: transparent !important;
+        box-shadow: none !important;
+        cursor: default;
+        pointer-events: none;
+      }
+
+      .brick.destroyed::after {
+        display: none;
+      }
+
+      #game-particles {
+        position: fixed;
+        inset: 0;
+        pointer-events: none;
+        z-index: 50;
+      }
+
+      @keyframes shardFly {
+        0% { opacity: 1; transform: translate(-50%, -50%) scale(1) rotate(0deg); }
+        100% { opacity: 0; transform: translate(calc(-50% + var(--sx)), calc(-50% + var(--sy))) scale(0.15) rotate(var(--sr)); }
+      }
+
+      @keyframes plateImpact {
+        0%   { opacity: 1;  transform: translate(-50%, -50%) scale(0.15); }
+        60%  { opacity: 0.9; transform: translate(-50%, -50%) scale(1.05); }
+        100% { opacity: 0;  transform: translate(-50%, -50%) scale(0.6); }
+      }
+
+      .shard {
+        position: fixed;
+        pointer-events: none;
+        animation: shardFly 0.65s ease-out forwards;
+      }
+
+      .plate-flash {
+        position: fixed;
+        pointer-events: none;
+        background: white;
+        border-radius: 50%;
+        animation: plateImpact 0.18s ease-out forwards;
+      }
+
+      #game-close {
+        position: fixed;
+        top: 15px;
+        right: 15px;
+        background: rgba(255,255,255,0.15);
+        color: white;
+        border: 2px solid rgba(255,255,255,0.3);
+        border-radius: 50%;
+        width: 48px;
+        height: 48px;
+        font-size: 1.5rem;
+        cursor: pointer;
+        z-index: 45;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+
+      #game-cleared {
+        display: none;
+        color: #ffd700;
+        font-size: clamp(2rem, 8vw, 4rem);
+        font-weight: 900;
+        text-align: center;
+        margin-top: 30px;
+        animation: popIn 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+      }
     </style>
   </head>
   <body>
@@ -328,6 +482,7 @@
       <button id="btn" onclick="startAnim()">Button</button>
       <button id="btn2" onclick="startNightAnim()">not a button</button>
       <button id="btn3" onclick="startQuestions()">Questions</button>
+      <button id="btn4" onclick="startGame()">Game</button>
     </div>
 
     <div id="flash"></div>
@@ -343,6 +498,15 @@
       </div>
       <p id="questions-final"></p>
     </div>
+
+    <div id="game-overlay">
+      <button id="game-close" onclick="closeGame()">✕</button>
+      <p id="game-title">🧱 Hit the bricks!</p>
+      <p id="game-score">Smashed: 0</p>
+      <div id="game-wall"></div>
+      <p id="game-cleared">🎉 All cleared! 🎉</p>
+    </div>
+    <div id="game-particles"></div>
 
     <div id="night-overlay">
       <div id="night-anim"></div>
@@ -575,6 +739,135 @@
         parent.appendChild(el);
         setTimeout(() => el.remove(), parseFloat(dur) * 1000 + 100);
       }
+
+      // ── Game ──────────────────────────────────────────────
+      let bricksSmashed = 0;
+      let totalBricks = 0;
+
+      function startGame() {
+        document.getElementById("main").style.display = "none";
+        bricksSmashed = 0;
+        document.getElementById("game-score").textContent = "Smashed: 0";
+        document.getElementById("game-cleared").style.display = "none";
+        createBrickWall();
+        document.getElementById("game-overlay").style.display = "flex";
+      }
+
+      function closeGame() {
+        document.getElementById("game-overlay").style.display = "none";
+        document.getElementById("main").style.display = "flex";
+      }
+
+      function createBrickWall() {
+        const wall = document.getElementById("game-wall");
+        wall.innerHTML = "";
+        const ROWS = 8, COLS = 4;
+        totalBricks = ROWS * COLS;
+
+        for (let r = 0; r < ROWS; r++) {
+          const row = document.createElement("div");
+          row.className = "brick-row";
+          if (r % 2 === 1) row.style.paddingLeft = "calc(12.5% + 1px)";
+
+          for (let c = 0; c < COLS; c++) {
+            const brick = document.createElement("div");
+            brick.className = "brick";
+            brick.dataset.hits = "0";
+            brick.style.filter = `brightness(${(0.85 + Math.random() * 0.3).toFixed(2)})`;
+
+            const handleHit = (e) => {
+              e.preventDefault();
+              const rect = brick.getBoundingClientRect();
+              hitBrick(brick, rect.left + rect.width / 2, rect.top + rect.height / 2);
+            };
+            brick.addEventListener("click", handleHit);
+            brick.addEventListener("touchstart", handleHit, { passive: false });
+            row.appendChild(brick);
+          }
+          wall.appendChild(row);
+        }
+      }
+
+      function hitBrick(brick, cx, cy) {
+        if (brick.classList.contains("destroyed")) return;
+        const hits = parseInt(brick.dataset.hits) + 1;
+        brick.dataset.hits = hits;
+        playBreakSound();
+        createImpact(cx, cy);
+        if (hits >= 2) {
+          brick.classList.add("destroyed");
+          bricksSmashed++;
+          document.getElementById("game-score").textContent = "Smashed: " + bricksSmashed;
+          if (bricksSmashed >= totalBricks) {
+            setTimeout(() => {
+              document.getElementById("game-cleared").style.display = "block";
+            }, 400);
+          }
+        } else {
+          brick.classList.add("cracked");
+        }
+      }
+
+      function createImpact(cx, cy) {
+        const container = document.getElementById("game-particles");
+
+        const plate = document.createElement("div");
+        plate.className = "plate-flash";
+        const size = 70 + Math.random() * 30;
+        plate.style.cssText = `width:${size}px;height:${size}px;left:${cx}px;top:${cy}px;`;
+        container.appendChild(plate);
+        setTimeout(() => plate.remove(), 250);
+
+        const count = 10 + Math.floor(Math.random() * 6);
+        for (let i = 0; i < count; i++) {
+          setTimeout(() => createShard(cx, cy, container), i * 12);
+        }
+      }
+
+      function createShard(cx, cy, container) {
+        const shard = document.createElement("div");
+        shard.className = "shard";
+        const angle = Math.random() * 360;
+        const dist = 55 + Math.random() * 120;
+        const sx = (Math.cos(angle * Math.PI / 180) * dist).toFixed(1);
+        const sy = (Math.sin(angle * Math.PI / 180) * dist).toFixed(1);
+        const sr = (Math.random() * 720 - 360).toFixed(0);
+        const w = 6 + Math.random() * 22;
+        const h = 5 + Math.random() * 14;
+        const gray = Math.floor(200 + Math.random() * 55);
+        shard.style.cssText = `left:${cx}px;top:${cy}px;width:${w}px;height:${h}px;border-radius:${Math.random() > 0.4 ? "2px" : "0 4px 2px 0"};background:rgb(${gray},${gray},${gray});opacity:${(0.7 + Math.random() * 0.3).toFixed(2)};`;
+        shard.style.setProperty("--sx", sx + "px");
+        shard.style.setProperty("--sy", sy + "px");
+        shard.style.setProperty("--sr", sr + "deg");
+        container.appendChild(shard);
+        setTimeout(() => shard.remove(), 800);
+      }
+
+      function playBreakSound() {
+        try {
+          const ctx = new (window.AudioContext || window.webkitAudioContext)();
+          const sr = ctx.sampleRate;
+          const buf = ctx.createBuffer(1, Math.floor(sr * 0.5), sr);
+          const data = buf.getChannelData(0);
+          for (let i = 0; i < data.length; i++) {
+            const t = i / sr;
+            data[i] = (Math.random() * 2 - 1) * Math.exp(-t * 15) * (1 + 3 * Math.exp(-t * 80));
+          }
+          const source = ctx.createBufferSource();
+          source.buffer = buf;
+          const hp = ctx.createBiquadFilter();
+          hp.type = "highpass";
+          hp.frequency.value = 600;
+          const gain = ctx.createGain();
+          gain.gain.value = 1.8;
+          source.connect(hp);
+          hp.connect(gain);
+          gain.connect(ctx.destination);
+          source.start();
+          setTimeout(() => ctx.close(), 1000);
+        } catch (e) {}
+      }
+      // ── End Game ──────────────────────────────────────────
 
       function spawnGlow(parent) {
         const el = document.createElement("div");
